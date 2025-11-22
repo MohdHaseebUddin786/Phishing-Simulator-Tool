@@ -5,7 +5,8 @@ import DetectionTabs from './components/DetectionTabs';
 import DetectionInput from './components/DetectionInput';
 import AnalysisResults from './components/AnalysisResults';
 import ChatBot from './components/ChatBot';
-import { analyzeThreat } from './utils/mockDetection';
+import { analyzeWithGemini } from './utils/geminiDetection';
+import { saveDetectionToDatabase } from './utils/supabaseClient';
 
 function App() {
   const [activeTab, setActiveTab] = useState<DetectionType>('url');
@@ -16,11 +17,24 @@ function App() {
     setIsAnalyzing(true);
     setDetectionResult(null);
 
-    setTimeout(() => {
-      const result = analyzeThreat(input, activeTab);
+    try {
+      const result = await analyzeWithGemini(input, activeTab);
       setDetectionResult(result);
+
+      await saveDetectionToDatabase({
+        content: typeof input === 'string' ? input : input.name,
+        detectionType: activeTab,
+        threatLevel: result.threatLevel,
+        confidence: result.confidence,
+        redFlags: result.redFlags,
+        analysis: result.analysis,
+      });
+    } catch (error) {
+      console.error('Analysis error:', error);
+      alert('Failed to analyze content. Please check your Gemini API key in the .env file.');
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   return (

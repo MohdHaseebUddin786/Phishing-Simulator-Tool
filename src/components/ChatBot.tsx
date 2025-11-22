@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Trash2, XCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { ChatMessage, DetectionResult } from '../types';
+import { generateChatResponse } from '../utils/geminiDetection';
 
 interface ChatBotProps {
   detectionResult: DetectionResult | null;
@@ -286,7 +287,7 @@ Never trust links in suspicious messages!`;
 What would you like to know more about?`;
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || !detectionResult) return;
 
     const userMessage: ChatMessage = {
@@ -296,20 +297,32 @@ What would you like to know more about?`;
       timestamp: new Date(),
     };
 
+    const userInput = input;
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      const aiResponse = await generateChatResponse(userInput, detectionResult);
       const botResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: generateResponse(input, detectionResult),
+        content: aiResponse,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botResponse]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      const fallbackResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: generateResponse(userInput, detectionResult),
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, fallbackResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
